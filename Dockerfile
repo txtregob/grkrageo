@@ -23,7 +23,7 @@ COPY . .
 # ENV HTTP_PORT=7680
 
 # 暴露应用的端口（根据 PaaS 平台的要求动态使用 PORT）
-EXPOSE 3000
+EXPOSE 8000
 
 # 启动应用
 CMD ["npm", "start"]
