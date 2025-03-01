@@ -5,8 +5,8 @@ const RGOE_AUTH = process.env.RGOE_AUTH || '';
 const CFIP = process.env.CFIP || 'www.digitalocean.com';
 const CFPORT = process.env.CFPORT || 443;
 const NAME = process.env.NAME || 'ArG';
-const XRAY_PORT = process.env.XRAY_PORT || 3001; // Xray 使用 3001，避免冲突
-const HTTP_PORT = process.env.PORT || 8000; // Express 使用 PORT，默认 8000 适配 Koyeb
+const XRAY_PORT = process.env.PORT || 8000; // Xray 占用对外端口，默认 8000 适配 Koyeb
+const HTTP_PORT = process.env.HTTP_PORT || 7680; // Express 使用内网端口
 
 const XRAY_DOWNLOAD_ARM = process.env.XRAY_DOWNLOAD_ARM || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-v8a.zip';
 const XRAY_DOWNLOAD_AMD = process.env.XRAY_DOWNLOAD_AMD || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-64.zip';
@@ -68,7 +68,7 @@ credentials-file: ${path.join(FILE_PATH, 'tunnel.json')}
 protocol: http2
 ingress:
   - hostname: ${RGOE_DOMAIN}
-    service: http://localhost:${XRAY_PORT}  // 改为 XRAY_PORT
+    service: http://localhost:${XRAY_PORT}  // 指向 Xray 的对外端口
     originRequest:
       noTLSVerify: true
   - service: http_status:404
@@ -96,16 +96,16 @@ function generateConfig() {
                     "clients": [{ "id": UUID, "flow": "xtls-rprx-vision" }], 
                     "decryption": "none", 
                     "fallbacks": [
-                        { "dest": HTTP_PORT },
-                        { "path": "/vless", "dest": 3002 }, // 调整端口，避免冲突
-                        { "path": "/vmess", "dest": 3003 },
-                        { "path": "/trojan", "dest": 3004 }
+                        { "dest": HTTP_PORT },  // 回落到 Express 的内网端口
+                        { "path": "/vless", "dest": 3001 },
+                        { "path": "/vmess", "dest": 3002 },
+                        { "path": "/trojan", "dest": 3003 }
                     ] 
                 }, 
                 "streamSettings": { "network": "tcp" } 
             },
             { 
-                "port": 3002, 
+                "port": 3001, 
                 "listen": "127.0.0.1", 
                 "protocol": "vless", 
                 "settings": { "clients": [{ "id": UUID, "level": 0 }], "decryption": "none" }, 
@@ -113,7 +113,7 @@ function generateConfig() {
                 "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false }
             },
             { 
-                "port": 3003, 
+                "port": 3002, 
                 "listen": "127.0.0.1", 
                 "protocol": "vmess", 
                 "settings": { "clients": [{ "id": UUID, "alterId": 0 }] }, 
@@ -121,7 +121,7 @@ function generateConfig() {
                 "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false }
             },
             { 
-                "port": 3004, 
+                "port": 3003, 
                 "listen": "127.0.0.1", 
                 "protocol": "trojan", 
                 "settings": { "clients": [{ "password": UUID }] }, 
@@ -267,7 +267,7 @@ function runServices() {
             res.status(404).send('404 Not Found');
         }
     });
-    app.listen(HTTP_PORT, '0.0.0.0', () => console.log(`Http server is running on port: ${HTTP_PORT}`));
+    app.listen(HTTP_PORT, '127.0.0.1', () => console.log(`Http server is running on port: ${HTTP_PORT}`));
 }
 
 function getRGOEDomain() {
@@ -285,7 +285,7 @@ async function generateLinks() {
     const RGOEDomain = getRGOEDomain();
     console.log(`\x1b[32mRGOEDomain: \x1b[35m${RGOEDomain}\x1b[0m`);
 
-    let isp = 'unknown'; // 默认值，避免 curl 失败影响
+    let isp = 'unknown';
     try {
         isp = execSync('curl -s https://speed.cloudflare.com/meta | awk -F\\" \'{print $26"-"$18}\' | sed -e \'s/ /_/g\'', { encoding: 'utf-8' }).trim();
     } catch {
