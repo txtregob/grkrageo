@@ -7,10 +7,14 @@ const CFPORT = process.env.CFPORT || 443;
 const NAME = process.env.NAME || 'ArG';
 const XRAY_PORT = process.env.PORT || 8000; // Xray 占用对外端口
 const HTTP_PORT = process.env.HTTP_PORT || 7680; // Express 回落端口
-// 新增三个路径变量，默认值保持原有路径
-const VSPATH = process.env.VSPATH || '/vless';
-const VMPATH = process.env.VMPATH || '/vmess';
-const TRPATH = process.env.TRPATH || '/trojan';
+const VSPATH = process.env.VSPATH || '/vless'; // VLESS 路径
+const VMPATH = process.env.VMPATH || '/vmess'; // VMess 路径
+const TRPATH = process.env.TRPATH || '/trojan'; // Trojan 路径
+
+// 打印路径变量以调试
+console.log(`VSPATH: ${VSPATH}`);
+console.log(`VMPATH: ${VMPATH}`);
+console.log(`TRPATH: ${TRPATH}`);
 
 const XRAY_DOWNLOAD_ARM = process.env.XRAY_DOWNLOAD_ARM || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-v8a.zip';
 const XRAY_DOWNLOAD_AMD = process.env.XRAY_DOWNLOAD_AMD || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-64.zip';
@@ -89,6 +93,7 @@ ingress:
 const isFixedTunnel = RGOEConfigure();
 
 function generateConfig() {
+    console.log(`Generating Xray config with paths - VSPATH: ${VSPATH}, VMPATH: ${VMPATH}, TRPATH: ${TRPATH}`);
     const config = {
         "log": { "access": "/dev/null", "error": "/dev/null", "loglevel": "info" },
         "inbounds": [
@@ -101,9 +106,9 @@ function generateConfig() {
                     "decryption": "none", 
                     "fallbacks": [
                         { "dest": HTTP_PORT },
-                        { "path": VSPATH, "dest": 3001 }, // 使用变量 VSPATH
-                        { "path": VMPATH, "dest": 3002 }, // 使用变量 VMPATH
-                        { "path": TRPATH, "dest": 3003 }  // 使用变量 TRPATH
+                        { "path": VSPATH, "dest": 3001 },
+                        { "path": VMPATH, "dest": 3002 },
+                        { "path": TRPATH, "dest": 3003 }
                     ] 
                 }, 
                 "streamSettings": { "network": "tcp" } 
@@ -113,7 +118,7 @@ function generateConfig() {
                 "listen": "127.0.0.1", 
                 "protocol": "vless", 
                 "settings": { "clients": [{ "id": UUID, "level": 0 }], "decryption": "none" }, 
-                "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": VSPATH } }, // 使用变量 VSPATH
+                "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": VSPATH } },
                 "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false }
             },
             { 
@@ -121,7 +126,7 @@ function generateConfig() {
                 "listen": "127.0.0.1", 
                 "protocol": "vmess", 
                 "settings": { "clients": [{ "id": UUID, "alterId": 0 }] }, 
-                "streamSettings": { "network": "ws", "wsSettings": { "path": VMPATH } }, // 使用变量 VMPATH
+                "streamSettings": { "network": "ws", "wsSettings": { "path": VMPATH } },
                 "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false }
             },
             { 
@@ -129,7 +134,7 @@ function generateConfig() {
                 "listen": "127.0.0.1", 
                 "protocol": "trojan", 
                 "settings": { "clients": [{ "password": UUID }] }, 
-                "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": TRPATH } }, // 使用变量 TRPATH
+                "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": TRPATH } },
                 "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false }
             }
         ],
@@ -141,10 +146,12 @@ function generateConfig() {
         "routing": { "domainStrategy": "AsIs", "rules": [{ "type": "field", "domain": ["domain:openai.com", "domain:ai.com", "domain:grok.com"], "outboundTag": "WARP" }] }
     };
     fs.writeFileSync(path.join(FILE_PATH, 'config.json'), JSON.stringify(config, null, 2));
+    console.log('Xray config generated successfully');
 }
 
 async function downloadFiles() {
     const arch = os.arch();
+    console.log(`Detected architecture: ${arch}`);
     const files = arch === 'arm' || arch === 'arm64' || arch === 'aarch64' ? [
         { url: XRAY_DOWNLOAD_ARM, name: XRAY_NAME },
         { url: CLOUDFLARED_DOWNLOAD_ARM, name: CLOUDFLARED_NAME }
@@ -266,8 +273,10 @@ function runServices() {
     app.get('/', (req, res) => {
         const indexPath = path.join(__dirname, 'index.html');
         if (fs.existsSync(indexPath)) {
+            console.log(`Serving index.html from ${indexPath}`);
             res.sendFile(indexPath);
         } else {
+            console.log('index.html not found, returning 404');
             res.status(404).send('404 Not Found');
         }
     });
@@ -292,9 +301,16 @@ async function generateLinks() {
     let isp = 'unknown';
     try {
         isp = execSync('curl -s https://speed.cloudflare.com/meta | awk -F\\" \'{print $26"-"$18}\' | sed -e \'s/ /_/g\'', { encoding: 'utf-8' }).trim();
+        console.log(`ISP detected: ${isp}`);
     } catch {
         console.log('curl not found, using default ISP: unknown');
     }
+
+    const vlessPath = `${VSPATH}?ed=2560`;
+    const vmessPath = `${VMPATH}?ed=2560`;
+    const trojanPath = `${TRPATH}?ed=2560`;
+
+    console.log(`Generated paths - VLESS: ${vlessPath}, VMESS: ${vmessPath}, TROJAN: ${trojanPath}`);
 
     const vmess = JSON.stringify({ 
         "v": "2", 
@@ -307,19 +323,19 @@ async function generateLinks() {
         "net": "ws", 
         "type": "none", 
         "host": RGOEDomain, 
-        "path": `${VMPATH}?ed=2560`, // 使用 VMPATH 并统一添加 ?ed=2560
+        "path": vmessPath,
         "tls": "tls", 
         "sni": RGOEDomain, 
         "alpn": "" 
     });
     const list = `
-vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=${encodeURIComponent(VSPATH)}?ed=2560#${NAME}-${isp}
+vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=${encodeURIComponent(vlessPath)}#${NAME}-${isp}
 vmess://${Buffer.from(vmess).toString('base64')}
-trojan://${UUID}@${CFIP}:${CFPORT}?security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=${encodeURIComponent(TRPATH)}?ed=2560#${NAME}-${isp}
+trojan://${UUID}@${CFIP}:${CFPORT}?security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=${encodeURIComponent(trojanPath)}#${NAME}-${isp}
 `;
     fs.writeFileSync(path.join(FILE_PATH, 'list.txt'), list);
     fs.writeFileSync(path.join(FILE_PATH, 'sub.txt'), Buffer.from(list).toString('base64'));
-    console.log(fs.readFileSync(path.join(FILE_PATH, 'sub.txt'), 'utf-8'));
+    console.log(`Generated subscription links:\n${list}`);
     console.log(`\x1b[32m${FILE_PATH}/sub.txt saved successfully\x1b[0m`);
 }
 
