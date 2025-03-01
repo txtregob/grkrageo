@@ -5,8 +5,8 @@ const RGOE_AUTH = process.env.RGOE_AUTH || '';
 const CFIP = process.env.CFIP || 'www.digitalocean.com';
 const CFPORT = process.env.CFPORT || 443;
 const NAME = process.env.NAME || 'ArG';
-const XRAY_PORT = process.env.XRAY_PORT || 3000;
-const HTTP_PORT = process.env.PORT || 3000;
+const XRAY_PORT = process.env.XRAY_PORT || 3001; // Xray 使用 3001，避免冲突
+const HTTP_PORT = process.env.PORT || 8000; // Express 使用 PORT，默认 8000 适配 Koyeb
 
 const XRAY_DOWNLOAD_ARM = process.env.XRAY_DOWNLOAD_ARM || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-v8a.zip';
 const XRAY_DOWNLOAD_AMD = process.env.XRAY_DOWNLOAD_AMD || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-64.zip';
@@ -46,8 +46,8 @@ function cleanupOldFiles() {
 cleanupOldFiles();
 
 function RGOEConfigure() {
-    console.log(`RGOE_DOMAIN: ${process.env.RGOE_DOMAIN}`);
-    console.log(`RGOE_AUTH: ${process.env.RGOE_AUTH}`);
+    console.log(`RGOE_DOMAIN: ${RGOE_DOMAIN}`);
+    console.log(`RGOE_AUTH: ${RGOE_AUTH}`);
     if (!RGOE_AUTH || !RGOE_DOMAIN) {
         console.log('\x1b[32mRGOE_DOMAIN or RGOE_AUTH variable is empty, use quick tunnels\x1b[0m');
         return false;
@@ -58,8 +58,8 @@ function RGOEConfigure() {
             if (!authObj.TunnelID || !authObj.TunnelSecret) {
                 throw new Error('RGOE_AUTH missing TunnelID or TunnelSecret');
             }
-            fs.writeFileSync(path.join(FILE_PATH, 'tunnel.json'), RGOE_AUTH);
-            console.log(`tunnel.json written: ${RGOE_AUTH}`);
+            fs.writeFileSync(path.join(FILE_PATH, 'tunnel.json'), JSON.stringify(authObj, null, 2));
+            console.log(`tunnel.json written: ${JSON.stringify(authObj)}`);
             const tunnelId = authObj.TunnelID;
             console.log(`Extracted TunnelID: ${tunnelId}`);
             const tunnelConfig = `
@@ -68,7 +68,7 @@ credentials-file: ${path.join(FILE_PATH, 'tunnel.json')}
 protocol: http2
 ingress:
   - hostname: ${RGOE_DOMAIN}
-    service: http://localhost:${XRAY_PORT}
+    service: http://localhost:${XRAY_PORT}  // 改为 XRAY_PORT
     originRequest:
       noTLSVerify: true
   - service: http_status:404
@@ -97,15 +97,15 @@ function generateConfig() {
                     "decryption": "none", 
                     "fallbacks": [
                         { "dest": HTTP_PORT },
-                        { "path": "/vless", "dest": 3001 },
-                        { "path": "/vmess", "dest": 3002 },
-                        { "path": "/trojan", "dest": 3003 }
+                        { "path": "/vless", "dest": 3002 }, // 调整端口，避免冲突
+                        { "path": "/vmess", "dest": 3003 },
+                        { "path": "/trojan", "dest": 3004 }
                     ] 
                 }, 
                 "streamSettings": { "network": "tcp" } 
             },
             { 
-                "port": 3001, 
+                "port": 3002, 
                 "listen": "127.0.0.1", 
                 "protocol": "vless", 
                 "settings": { "clients": [{ "id": UUID, "level": 0 }], "decryption": "none" }, 
@@ -113,7 +113,7 @@ function generateConfig() {
                 "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false }
             },
             { 
-                "port": 3002, 
+                "port": 3003, 
                 "listen": "127.0.0.1", 
                 "protocol": "vmess", 
                 "settings": { "clients": [{ "id": UUID, "alterId": 0 }] }, 
@@ -121,7 +121,7 @@ function generateConfig() {
                 "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false }
             },
             { 
-                "port": 3003, 
+                "port": 3004, 
                 "listen": "127.0.0.1", 
                 "protocol": "trojan", 
                 "settings": { "clients": [{ "password": UUID }] }, 
@@ -182,7 +182,6 @@ async function downloadFiles() {
             } catch (err) {
                 console.error(`Failed to download ${file.url}: ${err.message}`);
                 if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-                console.log(`\x1b[33mProceeding with existing files if available\x1b[0m`);
             }
         }
     }
@@ -220,34 +219,44 @@ async function unzipFile(zipPath, outputName) {
 }
 
 function runServices() {
-    const web = spawn(`${FILE_PATH}/${XRAY_NAME}`, ['-c', `${FILE_PATH}/config.json`], { detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    web.stdout.on('data', data => console.log(`Xray stdout: ${data}`));
-    web.stderr.on('data', data => console.error(`Xray stderr: ${data}`));
-    web.on('error', err => console.error(`Xray error: ${err}`));
-    web.unref();
-    console.log('\x1b[32mweb is running\x1b[0m');
+    try {
+        const web = spawn(`${FILE_PATH}/${XRAY_NAME}`, ['-c', `${FILE_PATH}/config.json`], { detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+        web.stdout.on('data', data => console.log(`Xray stdout: ${data}`));
+        web.stderr.on('data', data => console.error(`Xray stderr: ${data}`));
+        web.on('error', err => console.error(`Xray error: ${err}`));
+        web.on('exit', (code) => console.log(`Xray exited with code ${code}`));
+        web.unref();
+        console.log('\x1b[32mweb is running\x1b[0m');
+    } catch (err) {
+        console.error(`Failed to start Xray: ${err.message}`);
+    }
 
     setTimeout(() => {
-        let botArgs;
-        console.log(`isFixedTunnel: ${isFixedTunnel}`);
-        if (isFixedTunnel) {
-            if (RGOE_AUTH.includes('TunnelSecret')) {
-                botArgs = ['tunnel', '--edge-ip-version', 'auto', '--no-autoupdate', '--protocol', 'http2', '--config', `${FILE_PATH}/tunnel.yml`, 'run'];
-                console.log(`Starting Cloudflared with config: ${botArgs.join(' ')}`);
+        try {
+            let botArgs;
+            console.log(`isFixedTunnel: ${isFixedTunnel}`);
+            if (isFixedTunnel) {
+                if (RGOE_AUTH.includes('TunnelSecret')) {
+                    botArgs = ['tunnel', '--edge-ip-version', 'auto', '--no-autoupdate', '--protocol', 'http2', '--config', `${FILE_PATH}/tunnel.yml`, 'run'];
+                    console.log(`Starting Cloudflared with config: ${botArgs.join(' ')}`);
+                } else {
+                    botArgs = ['tunnel', '--edge-ip-version', 'auto', '--no-autoupdate', '--protocol', 'http2', '--token', RGOE_AUTH, 'run'];
+                    console.log(`Starting Cloudflared with token: ${RGOE_AUTH}`);
+                }
             } else {
-                botArgs = ['tunnel', '--edge-ip-version', 'auto', '--no-autoupdate', '--protocol', 'http2', '--token', RGOE_AUTH, 'run'];
-                console.log(`Starting Cloudflared with token: ${RGOE_AUTH}`);
+                botArgs = ['tunnel', '--edge-ip-version', 'auto', '--no-autoupdate', '--protocol', 'http2', '--url', `http://localhost:${XRAY_PORT}`, '--logfile', `${FILE_PATH}/boot.log`, '--loglevel', 'info'];
+                console.log(`Starting Cloudflared with quick tunnel: ${botArgs.join(' ')}`);
             }
-        } else {
-            botArgs = ['tunnel', '--edge-ip-version', 'auto', '--no-autoupdate', '--protocol', 'http2', '--url', `http://localhost:${XRAY_PORT}`, '--logfile', `${FILE_PATH}/boot.log`, '--loglevel', 'info'];
-            console.log(`Starting Cloudflared with quick tunnel: ${botArgs.join(' ')}`);
+            const bot = spawn(`${FILE_PATH}/${CLOUDFLARED_NAME}`, botArgs, { detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+            bot.stdout.on('data', data => console.log(`bot stdout: ${data}`));
+            bot.stderr.on('data', data => console.error(`bot stderr: ${data}`));
+            bot.on('error', err => console.error(`bot error: ${err}`));
+            bot.on('exit', (code) => console.log(`Cloudflared exited with code ${code}`));
+            bot.unref();
+            console.log('\x1b[32mbot is running\x1b[0m');
+        } catch (err) {
+            console.error(`Failed to start Cloudflared: ${err.message}`);
         }
-        const bot = spawn(`${FILE_PATH}/${CLOUDFLARED_NAME}`, botArgs, { detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
-        bot.stdout.on('data', data => console.log(`bot stdout: ${data}`));
-        bot.stderr.on('data', data => console.error(`bot stderr: ${data}`));
-        bot.on('error', err => console.error(`bot error: ${err}`));
-        bot.unref();
-        console.log('\x1b[32mbot is running\x1b[0m');
     }, 2000);
 
     app.get('/', (req, res) => {
@@ -276,11 +285,11 @@ async function generateLinks() {
     const RGOEDomain = getRGOEDomain();
     console.log(`\x1b[32mRGOEDomain: \x1b[35m${RGOEDomain}\x1b[0m`);
 
-    let isp;
+    let isp = 'unknown'; // 默认值，避免 curl 失败影响
     try {
         isp = execSync('curl -s https://speed.cloudflare.com/meta | awk -F\\" \'{print $26"-"$18}\' | sed -e \'s/ /_/g\'', { encoding: 'utf-8' }).trim();
     } catch {
-        isp = 'unknown';
+        console.log('curl not found, using default ISP: unknown');
     }
 
     const vmess = JSON.stringify({ "v": "2", "ps": `${NAME}-${isp}`, "add": CFIP, "port": CFPORT, "id": UUID, "aid": "0", "scy": "none", "net": "ws", "type": "none", "host": RGOEDomain, "path": "/vmess", "tls": "tls", "sni": RGOEDomain, "alpn": "" });
@@ -296,14 +305,22 @@ trojan://${UUID}@${CFIP}:${CFPORT}?security=tls&sni=${RGOEDomain}&type=ws&host=$
 }
 
 async function main() {
-    await downloadFiles();
-    generateConfig();
-    runServices();
-    await generateLinks();
-    console.log('\x1b[96mRunning done!\x1b[0m');
-    console.log('\x1b[96mThank you for using this script, enjoy!\x1b[0m');
-    await new Promise(resolve => setTimeout(resolve, 12000));
-    console.clear();
+    try {
+        await downloadFiles();
+        generateConfig();
+        runServices();
+        await generateLinks();
+        console.log('\x1b[96mRunning done!\x1b[0m');
+        console.log('\x1b[96mThank you for using this script, enjoy!\x1b[0m');
+        await new Promise(resolve => setTimeout(resolve, 12000));
+        console.clear();
+    } catch (err) {
+        console.error(`Main process failed: ${err.message}`);
+        process.exit(1);
+    }
 }
 
-main().catch(err => console.error('Startup failed:', err));
+main().catch(err => {
+    console.error(`Startup failed: ${err.message}`);
+    process.exit(1);
+});
