@@ -292,11 +292,11 @@ async function generateLinks() {
         console.log('curl not found, using default ISP: unknown');
     }
 
-    const vmess = JSON.stringify({ "v": "2", "ps": `${NAME}-${isp}`, "add": CFIP, "port": CFPORT, "id": UUID, "aid": "0", "scy": "none", "net": "ws", "type": "none", "host": RGOEDomain, "path": "/vmess", "tls": "tls", "sni": RGOEDomain, "alpn": "" });
+    const vmess = JSON.stringify({ "v": "2", "ps": `${NAME}-${isp}`, "add": CFIP, "port": CFPORT, "id": UUID, "aid": "0", "scy": "none", "net": "ws", "type": "none", "host": RGOEDomain, "path": "/vesms%3Fed%3D2560", "tls": "tls", "sni": RGOEDomain, "alpn": "" });
     const list = `
-vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=%2Fvless%3Fed%3D2048#${NAME}-${isp}
+vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=%2Fvesls%3Fed%3D2560#${NAME}-${isp}
 vmess://${Buffer.from(vmess).toString('base64')}
-trojan://${UUID}@${CFIP}:${CFPORT}?security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=%2Ftrojan%3Fed%3D2048#${NAME}-${isp}
+trojan://${UUID}@${CFIP}:${CFPORT}?security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=%2Ftrogsan%3Fed%3D2560#${NAME}-${isp}
 `;
     fs.writeFileSync(path.join(FILE_PATH, 'list.txt'), list);
     fs.writeFileSync(path.join(FILE_PATH, 'sub.txt'), Buffer.from(list).toString('base64'));
