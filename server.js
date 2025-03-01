@@ -6,7 +6,7 @@ const CFIP = process.env.CFIP || 'www.digitalocean.com';
 const CFPORT = process.env.CFPORT || 443;
 const NAME = process.env.NAME || 'ArG';
 const XRAY_PORT = process.env.XRAY_PORT || 3000;
-const HTTP_PORT = process.env.HTTP_PORT || 7680;
+const HTTP_PORT = process.env.PORT || 3000; // 使用 PORT 环境变量，默认 3000
 
 const XRAY_DOWNLOAD_ARM = process.env.XRAY_DOWNLOAD_ARM || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-v8a.zip';
 const XRAY_DOWNLOAD_AMD = process.env.XRAY_DOWNLOAD_AMD || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-64.zip';
@@ -82,7 +82,7 @@ function generateConfig() {
                     "clients": [{ "id": UUID, "flow": "xtls-rprx-vision" }], 
                     "decryption": "none", 
                     "fallbacks": [
-                        { "dest": HTTP_PORT },
+                        { "dest": HTTP_PORT }, // 回退到 HTTP_PORT，与 Express 一致
                         { "path": "/vless", "dest": 3001 },
                         { "path": "/vmess", "dest": 3002 },
                         { "path": "/trojan", "dest": 3003 }
@@ -240,7 +240,7 @@ function runServices() {
             res.status(404).send('404 Not Found');
         }
     });
-    app.listen(HTTP_PORT, '127.0.0.1', () => console.log(`Http server is running on port: ${HTTP_PORT}`));
+    app.listen(HTTP_PORT, '0.0.0.0', () => console.log(`Http server is running on port: ${HTTP_PORT}`));
 }
 
 function getRGOEDomain() {
