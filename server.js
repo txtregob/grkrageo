@@ -117,10 +117,10 @@ function generateConfig() {
         ],
         "outbounds": [
             { "protocol": "freedom" },
-            { "tag": "WARP", "protocol": "wireguard", "settings": { "secretKey": "eKGIW4fe8QSg3v7uUFA7fkhSpJFSZhNzXyd9V6OQLm4=", "address": ["172.16.0.2/32", "2606:4700:110:8cd5:e6f7:ffe9:68b9:1f29/128"], "peers": [{ "publicKey": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=", "allowedIPs": ["0.0.0.0/0", "::/0"], "endpoint": "engage.cloudflareclient.com:2408" }], "mtu": 1280 } }
+            { "tag": "WARP", "protocol": "wireguard", "settings": { "secretKey": "AB+YclUZigV54ZKbGlnKYyCzEa31lMbwOkvezpBlV3c=", "address": ["172.16.0.2/32", "2606:4700:110:825e:3c8c:1df2:6937:1731/128"], "peers": [{ "publicKey": "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=", "allowedIPs": ["0.0.0.0/0", "::/0"], "endpoint": "engage.cloudflareclient.com:2408" }], "mtu": 1280 } }
         ],
         "dns": { "servers": ["https+local://8.8.8.8/dns-query"] },
-        "routing": { "domainStrategy": "AsIs", "rules": [{ "type": "field", "domain": ["domain:openai.com", "domain:ai.com"], "outboundTag": "WARP" }] }
+        "routing": { "domainStrategy": "AsIs", "rules": [{ "type": "field", "domain": ["domain:openai.com", "domain:ai.com", "domain:grok.com"], "outboundTag": "WARP" }] }
     };
     fs.writeFileSync(path.join(FILE_PATH, 'config.json'), JSON.stringify(config, null, 2));
 }
