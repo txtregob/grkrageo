@@ -6,7 +6,7 @@ const CFIP = process.env.CFIP || 'www.digitalocean.com';
 const CFPORT = process.env.CFPORT || 443;
 const NAME = process.env.NAME || 'ArG';
 const XRAY_PORT = process.env.XRAY_PORT || 3000;
-const HTTP_PORT = process.env.PORT || 3000; // 使用 PORT 环境变量，默认 3000
+const HTTP_PORT = process.env.PORT || 3000;
 
 const XRAY_DOWNLOAD_ARM = process.env.XRAY_DOWNLOAD_ARM || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-v8a.zip';
 const XRAY_DOWNLOAD_AMD = process.env.XRAY_DOWNLOAD_AMD || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-64.zip';
@@ -46,14 +46,23 @@ function cleanupOldFiles() {
 cleanupOldFiles();
 
 function RGOEConfigure() {
+    console.log(`RGOE_DOMAIN: ${process.env.RGOE_DOMAIN}`);
+    console.log(`RGOE_AUTH: ${process.env.RGOE_AUTH}`);
     if (!RGOE_AUTH || !RGOE_DOMAIN) {
         console.log('\x1b[32mRGOE_DOMAIN or RGOE_AUTH variable is empty, use quick tunnels\x1b[0m');
         return false;
     }
     if (RGOE_AUTH.includes('TunnelSecret')) {
-        fs.writeFileSync(path.join(FILE_PATH, 'tunnel.json'), RGOE_AUTH);
-        const tunnelId = RGOE_AUTH.split('"')[11];
-        const tunnelConfig = `
+        try {
+            const authObj = JSON.parse(RGOE_AUTH);
+            if (!authObj.TunnelID || !authObj.TunnelSecret) {
+                throw new Error('RGOE_AUTH missing TunnelID or TunnelSecret');
+            }
+            fs.writeFileSync(path.join(FILE_PATH, 'tunnel.json'), RGOE_AUTH);
+            console.log(`tunnel.json written: ${RGOE_AUTH}`);
+            const tunnelId = authObj.TunnelID;
+            console.log(`Extracted TunnelID: ${tunnelId}`);
+            const tunnelConfig = `
 tunnel: ${tunnelId}
 credentials-file: ${path.join(FILE_PATH, 'tunnel.json')}
 protocol: http2
@@ -64,7 +73,12 @@ ingress:
       noTLSVerify: true
   - service: http_status:404
 `;
-        fs.writeFileSync(path.join(FILE_PATH, 'tunnel.yml'), tunnelConfig);
+            fs.writeFileSync(path.join(FILE_PATH, 'tunnel.yml'), tunnelConfig);
+            console.log(`tunnel.yml written: ${tunnelConfig}`);
+        } catch (err) {
+            console.error(`RGOEConfigure failed: ${err.message}`);
+            return false;
+        }
     }
     return true;
 }
@@ -82,7 +96,7 @@ function generateConfig() {
                     "clients": [{ "id": UUID, "flow": "xtls-rprx-vision" }], 
                     "decryption": "none", 
                     "fallbacks": [
-                        { "dest": HTTP_PORT }, // 回退到 HTTP_PORT，与 Express 一致
+                        { "dest": HTTP_PORT },
                         { "path": "/vless", "dest": 3001 },
                         { "path": "/vmess", "dest": 3002 },
                         { "path": "/trojan", "dest": 3003 }
@@ -147,9 +161,9 @@ async function downloadFiles() {
                     method: 'get',
                     url: file.url,
                     responseType: 'arraybuffer',
-                    timeout: 60000, // 60秒超时
+                    timeout: 60000,
                     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' },
-                    maxRedirects: 10 // 允许最多10次重定向
+                    maxRedirects: 10
                 });
                 fs.writeFileSync(tempPath, Buffer.from(response.data));
                 console.log(`\x1b[32mDownloaded ${file.url} to ${tempPath}\x1b[0m`);
@@ -215,14 +229,18 @@ function runServices() {
 
     setTimeout(() => {
         let botArgs;
+        console.log(`isFixedTunnel: ${isFixedTunnel}`);
         if (isFixedTunnel) {
             if (RGOE_AUTH.includes('TunnelSecret')) {
                 botArgs = ['tunnel', '--edge-ip-version', 'auto', '--no-autoupdate', '--protocol', 'http2', '--config', `${FILE_PATH}/tunnel.yml`, 'run'];
+                console.log(`Starting Cloudflared with config: ${botArgs.join(' ')}`);
             } else {
                 botArgs = ['tunnel', '--edge-ip-version', 'auto', '--no-autoupdate', '--protocol', 'http2', '--token', RGOE_AUTH, 'run'];
+                console.log(`Starting Cloudflared with token: ${RGOE_AUTH}`);
             }
         } else {
             botArgs = ['tunnel', '--edge-ip-version', 'auto', '--no-autoupdate', '--protocol', 'http2', '--url', `http://localhost:${XRAY_PORT}`, '--logfile', `${FILE_PATH}/boot.log`, '--loglevel', 'info'];
+            console.log(`Starting Cloudflared with quick tunnel: ${botArgs.join(' ')}`);
         }
         const bot = spawn(`${FILE_PATH}/${CLOUDFLARED_NAME}`, botArgs, { detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
         bot.stdout.on('data', data => console.log(`bot stdout: ${data}`));
