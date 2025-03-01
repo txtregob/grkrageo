@@ -5,8 +5,12 @@ const RGOE_AUTH = process.env.RGOE_AUTH || '';
 const CFIP = process.env.CFIP || 'www.digitalocean.com';
 const CFPORT = process.env.CFPORT || 443;
 const NAME = process.env.NAME || 'ArG';
-const XRAY_PORT = process.env.PORT || 8000; // Xray 占用对外端口，默认 8000 适配 Koyeb，如有不同须修改以及Dockerfile中的端口
-const HTTP_PORT = process.env.HTTP_PORT || 7680; // Express 使用内网端口
+const XRAY_PORT = process.env.PORT || 8000; // Xray 占用对外端口
+const HTTP_PORT = process.env.HTTP_PORT || 7680; // Express 回落端口
+// 新增三个路径变量，默认值保持原有路径
+const VSPATH = process.env.VSPATH || '/velss';
+const VMPATH = process.env.VMPATH || '/vesms';
+const TRPATH = process.env.TRPATH || '/troban';
 
 const XRAY_DOWNLOAD_ARM = process.env.XRAY_DOWNLOAD_ARM || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-v8a.zip';
 const XRAY_DOWNLOAD_AMD = process.env.XRAY_DOWNLOAD_AMD || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-64.zip';
@@ -68,7 +72,7 @@ credentials-file: ${path.join(FILE_PATH, 'tunnel.json')}
 protocol: http2
 ingress:
   - hostname: ${RGOE_DOMAIN}
-    service: http://localhost:${XRAY_PORT}  // 指向 Xray 的对外端口
+    service: http://localhost:${XRAY_PORT}
     originRequest:
       noTLSVerify: true
   - service: http_status:404
@@ -96,10 +100,10 @@ function generateConfig() {
                     "clients": [{ "id": UUID, "flow": "xtls-rprx-vision" }], 
                     "decryption": "none", 
                     "fallbacks": [
-                        { "dest": HTTP_PORT },  // 回落到 Express 的内网端口
-                        { "path": "/vless", "dest": 3001 },
-                        { "path": "/vmess", "dest": 3002 },
-                        { "path": "/trojan", "dest": 3003 }
+                        { "dest": HTTP_PORT },
+                        { "path": VSPATH, "dest": 3001 }, // 使用变量 VSPATH
+                        { "path": VMPATH, "dest": 3002 }, // 使用变量 VMPATH
+                        { "path": TRPATH, "dest": 3003 }  // 使用变量 TRPATH
                     ] 
                 }, 
                 "streamSettings": { "network": "tcp" } 
@@ -109,7 +113,7 @@ function generateConfig() {
                 "listen": "127.0.0.1", 
                 "protocol": "vless", 
                 "settings": { "clients": [{ "id": UUID, "level": 0 }], "decryption": "none" }, 
-                "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": "/vless" } },
+                "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": VSPATH } }, // 使用变量 VSPATH
                 "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false }
             },
             { 
@@ -117,7 +121,7 @@ function generateConfig() {
                 "listen": "127.0.0.1", 
                 "protocol": "vmess", 
                 "settings": { "clients": [{ "id": UUID, "alterId": 0 }] }, 
-                "streamSettings": { "network": "ws", "wsSettings": { "path": "/vmess" } },
+                "streamSettings": { "network": "ws", "wsSettings": { "path": VMPATH } }, // 使用变量 VMPATH
                 "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false }
             },
             { 
@@ -125,7 +129,7 @@ function generateConfig() {
                 "listen": "127.0.0.1", 
                 "protocol": "trojan", 
                 "settings": { "clients": [{ "password": UUID }] }, 
-                "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": "/trojan" } },
+                "streamSettings": { "network": "ws", "security": "none", "wsSettings": { "path": TRPATH } }, // 使用变量 TRPATH
                 "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "metadataOnly": false }
             }
         ],
@@ -292,11 +296,26 @@ async function generateLinks() {
         console.log('curl not found, using default ISP: unknown');
     }
 
-    const vmess = JSON.stringify({ "v": "2", "ps": `${NAME}-${isp}`, "add": CFIP, "port": CFPORT, "id": UUID, "aid": "0", "scy": "none", "net": "ws", "type": "none", "host": RGOEDomain, "path": "/vesms%3Fed%3D2560", "tls": "tls", "sni": RGOEDomain, "alpn": "" });
+    const vmess = JSON.stringify({ 
+        "v": "2", 
+        "ps": `${NAME}-${isp}`, 
+        "add": CFIP, 
+        "port": CFPORT, 
+        "id": UUID, 
+        "aid": "0", 
+        "scy": "none", 
+        "net": "ws", 
+        "type": "none", 
+        "host": RGOEDomain, 
+        "path": `${VMPATH}?ed=2560`, // 使用 VMPATH 并统一添加 ?ed=2560
+        "tls": "tls", 
+        "sni": RGOEDomain, 
+        "alpn": "" 
+    });
     const list = `
-vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=%2Fvesls%3Fed%3D2560#${NAME}-${isp}
+vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=${encodeURIComponent(VSPATH)}?ed=2560#${NAME}-${isp}
 vmess://${Buffer.from(vmess).toString('base64')}
-trojan://${UUID}@${CFIP}:${CFPORT}?security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=%2Ftrogsan%3Fed%3D2560#${NAME}-${isp}
+trojan://${UUID}@${CFIP}:${CFPORT}?security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=${encodeURIComponent(TRPATH)}?ed=2560#${NAME}-${isp}
 `;
     fs.writeFileSync(path.join(FILE_PATH, 'list.txt'), list);
     fs.writeFileSync(path.join(FILE_PATH, 'sub.txt'), Buffer.from(list).toString('base64'));
