@@ -11,9 +11,6 @@ const VSPATH = process.env.VSPATH || '/vless';
 const VMPATH = process.env.VMPATH || '/vmess';
 const TRPATH = process.env.TRPATH || '/trojan';
 
-// 打印环境变量以调试
-console.log(`Environment variables - VSPATH: ${VSPATH}, VMPATH: ${VMPATH}, TRPATH: ${TRPATH}`);
-
 const XRAY_DOWNLOAD_ARM = process.env.XRAY_DOWNLOAD_ARM || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-v8a.zip';
 const XRAY_DOWNLOAD_AMD = process.env.XRAY_DOWNLOAD_AMD || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-64.zip';
 const CLOUDFLARED_DOWNLOAD_ARM = process.env.CLOUDFLARED_DOWNLOAD_ARM || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/cldflred-linux-arm64.zip';
@@ -91,7 +88,6 @@ ingress:
 const isFixedTunnel = RGOEConfigure();
 
 function generateConfig() {
-    console.log(`Generating Xray config with paths - VSPATH: ${VSPATH}, VMPATH: ${VMPATH}, TRPATH: ${TRPATH}`);
     const config = {
         "log": { "access": "/dev/null", "error": "/dev/null", "loglevel": "info" },
         "inbounds": [
@@ -144,12 +140,10 @@ function generateConfig() {
         "routing": { "domainStrategy": "AsIs", "rules": [{ "type": "field", "domain": ["domain:openai.com", "domain:ai.com", "domain:grok.com"], "outboundTag": "WARP" }] }
     };
     fs.writeFileSync(path.join(FILE_PATH, 'config.json'), JSON.stringify(config, null, 2));
-    console.log('Xray config generated successfully');
 }
 
 async function downloadFiles() {
     const arch = os.arch();
-    console.log(`Detected architecture: ${arch}`);
     const files = arch === 'arm' || arch === 'arm64' || arch === 'aarch64' ? [
         { url: XRAY_DOWNLOAD_ARM, name: XRAY_NAME },
         { url: CLOUDFLARED_DOWNLOAD_ARM, name: CLOUDFLARED_NAME }
@@ -271,10 +265,8 @@ function runServices() {
     app.get('/', (req, res) => {
         const indexPath = path.join(__dirname, 'index.html');
         if (fs.existsSync(indexPath)) {
-            console.log(`Serving index.html from ${indexPath}`);
             res.sendFile(indexPath);
         } else {
-            console.log('index.html not found, returning 404');
             res.status(404).send('404 Not Found');
         }
     });
@@ -299,7 +291,6 @@ async function generateLinks() {
     let isp = 'unknown';
     try {
         isp = execSync('curl -s https://speed.cloudflare.com/meta | awk -F\\" \'{print $26"-"$18}\' | sed -e \'s/ /_/g\'', { encoding: 'utf-8' }).trim();
-        console.log(`ISP detected: ${isp}`);
     } catch {
         console.log('curl not found, using default ISP: unknown');
     }
@@ -307,8 +298,6 @@ async function generateLinks() {
     const vlessPath = `${VSPATH}?ed=2560`;
     const vmessPath = `${VMPATH}?ed=2560`;
     const trojanPath = `${TRPATH}?ed=2560`;
-
-    console.log(`Generated paths - VLESS: ${vlessPath}, VMESS: ${vmessPath}, TROJAN: ${trojanPath}`);
 
     const vmess = JSON.stringify({ 
         "v": "2", 
@@ -332,10 +321,9 @@ async function generateLinks() {
     const trojanLink = `trojan://${UUID}@${CFIP}:${CFPORT}?security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=${encodeURIComponent(trojanPath)}#${NAME}-${isp}`;
 
     const list = `${vlessLink}\n${vmessLink}\n${trojanLink}`;
-
     fs.writeFileSync(path.join(FILE_PATH, 'list.txt'), list);
     fs.writeFileSync(path.join(FILE_PATH, 'sub.txt'), Buffer.from(list).toString('base64'));
-    console.log(`Generated subscription links:\n${list}`);
+    console.log(fs.readFileSync(path.join(FILE_PATH, 'sub.txt'), 'utf-8')); // 输出 Base64 编码的订阅链接
     console.log(`\x1b[32m${FILE_PATH}/sub.txt saved successfully\x1b[0m`);
 }
 
