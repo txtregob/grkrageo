@@ -5,16 +5,14 @@ const RGOE_AUTH = process.env.RGOE_AUTH || '';
 const CFIP = process.env.CFIP || 'www.digitalocean.com';
 const CFPORT = process.env.CFPORT || 443;
 const NAME = process.env.NAME || 'ArG';
-const XRAY_PORT = process.env.PORT || 8000; // Xray 占用对外端口
-const HTTP_PORT = process.env.HTTP_PORT || 7680; // Express 回落端口
-const VSPATH = process.env.VSPATH || '/vless'; // VLESS 路径
-const VMPATH = process.env.VMPATH || '/vmess'; // VMess 路径
-const TRPATH = process.env.TRPATH || '/trojan'; // Trojan 路径
+const XRAY_PORT = process.env.PORT || 8000;
+const HTTP_PORT = process.env.HTTP_PORT || 7680;
+const VSPATH = process.env.VSPATH || '/vless';
+const VMPATH = process.env.VMPATH || '/vmess';
+const TRPATH = process.env.TRPATH || '/trojan';
 
-// 打印路径变量以调试
-console.log(`VSPATH: ${VSPATH}`);
-console.log(`VMPATH: ${VMPATH}`);
-console.log(`TRPATH: ${TRPATH}`);
+// 打印环境变量以调试
+console.log(`Environment variables - VSPATH: ${VSPATH}, VMPATH: ${VMPATH}, TRPATH: ${TRPATH}`);
 
 const XRAY_DOWNLOAD_ARM = process.env.XRAY_DOWNLOAD_ARM || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-v8a.zip';
 const XRAY_DOWNLOAD_AMD = process.env.XRAY_DOWNLOAD_AMD || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-64.zip';
@@ -328,11 +326,13 @@ async function generateLinks() {
         "sni": RGOEDomain, 
         "alpn": "" 
     });
-    const list = `
-vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=${encodeURIComponent(vlessPath)}#${NAME}-${isp}
-vmess://${Buffer.from(vmess).toString('base64')}
-trojan://${UUID}@${CFIP}:${CFPORT}?security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=${encodeURIComponent(trojanPath)}#${NAME}-${isp}
-`;
+
+    const vlessLink = `vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=${encodeURIComponent(vlessPath)}#${NAME}-${isp}`;
+    const vmessLink = `vmess://${Buffer.from(vmess).toString('base64')}`;
+    const trojanLink = `trojan://${UUID}@${CFIP}:${CFPORT}?security=tls&sni=${RGOEDomain}&type=ws&host=${RGOEDomain}&path=${encodeURIComponent(trojanPath)}#${NAME}-${isp}`;
+
+    const list = `${vlessLink}\n${vmessLink}\n${trojanLink}`;
+
     fs.writeFileSync(path.join(FILE_PATH, 'list.txt'), list);
     fs.writeFileSync(path.join(FILE_PATH, 'sub.txt'), Buffer.from(list).toString('base64'));
     console.log(`Generated subscription links:\n${list}`);
