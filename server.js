@@ -4,7 +4,7 @@ const RGOE_DOMAIN = process.env.RGOE_DOMAIN || '';
 const RGOE_AUTH = process.env.RGOE_AUTH || '';
 const CFIP = process.env.CFIP || 'www.digitalocean.com';
 const CFPORT = process.env.CFPORT || 443;
-const NAME = process.env.NAME || 'ArG';
+const NAME = process.env.NAME || 'Glich';
 const XRAY_PORT = process.env.XRAY_PORT || 3000;
 const HTTP_PORT = process.env.HTTP_PORT || 7680;
 
