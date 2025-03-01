@@ -8,9 +8,9 @@ const NAME = process.env.NAME || 'ArG';
 const XRAY_PORT = process.env.PORT || 8000; // Xray 占用对外端口
 const HTTP_PORT = process.env.HTTP_PORT || 7680; // Express 回落端口
 // 新增三个路径变量，默认值保持原有路径
-const VSPATH = process.env.VSPATH || '/velss';
-const VMPATH = process.env.VMPATH || '/vesms';
-const TRPATH = process.env.TRPATH || '/troban';
+const VSPATH = process.env.VSPATH || '/vless';
+const VMPATH = process.env.VMPATH || '/vmess';
+const TRPATH = process.env.TRPATH || '/trojan';
 
 const XRAY_DOWNLOAD_ARM = process.env.XRAY_DOWNLOAD_ARM || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-v8a.zip';
 const XRAY_DOWNLOAD_AMD = process.env.XRAY_DOWNLOAD_AMD || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-64.zip';
