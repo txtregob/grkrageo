@@ -5,7 +5,7 @@ const RGOE_AUTH = process.env.RGOE_AUTH || '';
 const CFIP = process.env.CFIP || 'www.digitalocean.com';
 const CFPORT = process.env.CFPORT || 443;
 const NAME = process.env.NAME || 'ArG';
-const XRAY_PORT = process.env.PORT || 8000; // Xray 占用对外端口，默认 8000 适配 Koyeb
+const XRAY_PORT = process.env.PORT || 8000; // Xray 占用对外端口，默认 8000 适配 Koyeb，如有不同须修改以及Dockerfile中的端口
 const HTTP_PORT = process.env.HTTP_PORT || 7680; // Express 使用内网端口
 
 const XRAY_DOWNLOAD_ARM = process.env.XRAY_DOWNLOAD_ARM || 'https://github.com/codsandbx/ndjsagro/raw/refs/heads/main/xnc/Xcore-linux-v8a.zip';
