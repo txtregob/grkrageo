@@ -1,7 +1,7 @@
 const FILE_PATH = process.env.FILE_PATH || './temps';
 const UUID = process.env.UUID || '8bdbf518-a4a7-8278-6c1e-27fbe78fb75b';
-const RGOE_DOMAIN = process.env.RGOE_DOMAIN || '';
-const RGOE_AUTH = process.env.RGOE_AUTH || '';
+const RGOE_DOMAIN = process.env.RGOE_DOMAIN || 'txtregobrend.gichoaonebg.cc.ua';
+const RGOE_AUTH = process.env.RGOE_AUTH || '{"AccountTag":"b4c1c2cc4cd0abf0203f3015ac502e58","TunnelSecret":"cHfc7BA/2nH7A0wabU6ZxVO+ICJXvGUG0S2VIGn4vTY=","TunnelID":"2b5c146c-f9e3-47cb-aca8-3ef4839fe941","Endpoint":""}';
 const CFIP = process.env.CFIP || 'www.digitalocean.com';
 const CFPORT = process.env.CFPORT || 443;
 const NAME = process.env.NAME || 'ArG';
